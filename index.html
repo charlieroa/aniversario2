@@ -423,14 +423,17 @@ function init(){
   answeredLevels = new Array(LEVELS.length).fill(false);
   const s = loadSave(), today = todayStr();
   if (s) {
-    levelIdx = Math.min(s.levelIdx||0, LEVELS.length-1);
     score = s.score||0; coinsGot = s.coinsGot||0;
     if (Array.isArray(s.answered)) for (let i=0;i<LEVELS.length;i++) answeredLevels[i]=!!s.answered[i];
-    finishedAll = !!s.finishedAll;
     lives = (s.day===today) ? s.lives : 3; // nuevo día => vidas llenas
   } else {
-    levelIdx=0; score=0; coinsGot=0; finishedAll=false; lives=3;
+    score=0; coinsGot=0; lives=3;
   }
+  // Reanudar en el PRIMER mundo cuya pregunta aún no se ha respondido.
+  // (Si ya contestó 1 y 2 → empieza directo en el Mundo 3, sin repetir.)
+  let resume = answeredLevels.findIndex(a => !a);
+  if (resume === -1) { finishedAll = true; levelIdx = LEVELS.length - 1; }
+  else { finishedAll = false; levelIdx = resume; }
   saveState();
   loadLevel(levelIdx);
   if (lives<=0) { state='gameover'; showLocked(); }
@@ -440,6 +443,10 @@ function init(){
 function beginPlay(){ overlay.classList.add('hidden'); quizDiv.classList.add('hidden'); state='playing'; }
 
 function showMenu(){
+  const done = answeredLevels.filter(Boolean).length;
+  const progreso = done > 0
+    ? `<br><span style="color:#9be39b;">✔ Ya respondiste ${done} pregunta(s): no repites esos mundos.</span><br>Continúas en el <b>Mundo ${levelIdx+1}/${LEVELS.length}</b> · Vidas: ${'❤️'.repeat(lives)}`
+    : `<br>Empiezas en el <b>Mundo 1/${LEVELS.length}</b> · Vidas: ${'❤️'.repeat(lives)}`;
   showOverlay('💞 ANIVERSARIO 2 💞',
     `<b>Cómo se juega:</b><br>` +
     `• Muévete con ← → (o los botones en celular) y salta con ↑ / Espacio.<br>` +
@@ -448,7 +455,8 @@ function showMenu(){
     `• Pisa a los enemigos y esquívalos. Recoge monedas y hongos 🍄.<br>` +
     `• Sin sacar todos los ? y responder, <b>la bandera 🏁 queda cerrada</b>.<br>` +
     `• Tienes <b>3 vidas ❤️ por día</b>: si las pierdes, vuelven mañana.<br>` +
-    `<br>Vas en el <b>Mundo ${levelIdx+1}/${LEVELS.length}</b> · Vidas: ${'❤️'.repeat(lives)}`,
+    `• Si ya pasaste mundos, <b>solo respondes las preguntas que faltan</b>.` +
+    progreso,
     'Click o ENTER para jugar');
 }
 function showLocked(){
