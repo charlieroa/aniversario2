@@ -419,7 +419,7 @@ let state='menu';
 let coins=[], mushrooms=[], enemies=[], particles=[], popcoins=[];
 let big=false, T=0, hintMsg='', hintT=0;
 let answeredLevels=[], finishedAll=false, levelIntroT=0;
-const SAVE_KEY='aniv2_save_v3';
+const SAVE_KEY='aniv2_save_v4';
 const START_LIVES=1;   // empieza con una sola vida
 const START_WORLD=5;   // arranca en el Mundo 6 (índice 5): marca 1-5 como ya pasados
 
@@ -455,6 +455,8 @@ function saveState(){
 function init(){
   LEVELS = buildLevels();
   answeredLevels = new Array(LEVELS.length).fill(false);
+  // Modo prueba: abrir con ?reset borra el guardado y devuelve la vida de hoy
+  if (location.search.indexOf('reset')>=0){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
   const s = loadSave(), today = todayStr();
   if (s) {
     score = s.score||0; coinsGot = s.coinsGot||0;
