@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aniversario 2</title>
+<style>
+  html, body {
+    margin: 0; height: 100%;
+    background: #0d0d1a;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-family: "Segoe UI", Arial, sans-serif;
+    color: #fff; user-select: none; overflow: hidden;
+  }
+  h1 { margin: 8px 0 2px; font-size: 20px; letter-spacing: 1px; text-shadow: 2px 2px 0 #000; }
+  #hint { margin: 0 0 8px; font-size: 12px; color: #99a; }
+  #wrap { position: relative; width: min(800px, 96vw); }
+  canvas {
+    background: #5c94fc;
+    border: 4px solid #111; border-radius: 6px;
+    image-rendering: pixelated;
+    box-shadow: 0 10px 40px rgba(0,0,0,.6);
+    width: 100%; height: auto; display: block;
+    touch-action: none;
+  }
+  /* ---- controles táctiles ---- */
+  #touch { position: absolute; inset: 0; pointer-events: none; display: none; }
+  #touch.on { display: block; }
+  .tbtn {
+    position: absolute; bottom: 14px;
+    width: 70px; height: 70px; border-radius: 50%;
+    background: rgba(255,255,255,.22);
+    border: 3px solid rgba(255,255,255,.55);
+    color: #fff; font-size: 30px; font-weight: bold;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: auto; user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tbtn:active { background: rgba(255,255,255,.45); }
+  #bLeft  { left: 14px; }
+  #bRight { left: 100px; }
+  #bJump  { right: 16px; width: 86px; height: 86px; background: rgba(226,59,109,.4); border-color: rgba(255,160,200,.7); }
+  #overlay, #quiz {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    border-radius: 6px; text-align: center;
+  }
+  #overlay { background: rgba(8,8,20,.78); cursor: pointer; overflow-y: auto; padding: 16px; box-sizing: border-box; }
+  #overlay h2 { font-size: 34px; margin: 0 0 10px; text-shadow: 2px 2px 0 #000; }
+  #overlay p { margin: 4px 0; font-size: 16px; }
+  #overlay .go { margin-top: 14px; color: #ffd75e; font-weight: bold; animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: .35; } }
+  #quiz { background: rgba(8,8,20,.88); }
+  #quiz .em { font-size: 40px; margin-bottom: 6px; }
+  #quiz h3 { font-size: 23px; margin: 0 0 18px; max-width: 78%; line-height: 1.3; text-shadow: 1px 1px 0 #000; }
+  #quiz input {
+    font-size: 18px; padding: 11px 14px; border-radius: 10px;
+    border: 3px solid #e23b6d; outline: none; width: 280px; text-align: center;
+  }
+  #quiz button {
+    margin-top: 16px; font-size: 16px; padding: 11px 26px; border: none;
+    border-radius: 10px; background: #e23b6d; color: #fff; cursor: pointer; font-weight: bold;
+  }
+  #quiz button:hover { background: #ff5d8f; }
+  #quiz-choices { display: flex; flex-direction: column; gap: 11px; margin-top: 4px; }
+  #quiz-choices.hidden { display: none !important; }
+  .choice {
+    font-size: 17px; padding: 13px 28px; border: 3px solid #ffd75e;
+    border-radius: 12px; background: rgba(255,255,255,.12); color: #fff;
+    cursor: pointer; font-weight: bold; min-width: 250px;
+  }
+  .choice:hover { background: rgba(255,215,94,.3); }
+  .choice:active { transform: scale(.97); }
+  #quiz .fb { margin-top: 14px; min-height: 22px; font-size: 15px; font-weight: bold; }
+  .shake { animation: shake .35s; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+  <h1>💞 ANIVERSARIO 2 💞</h1>
+  <p id="hint">← → correr · Shift rápido · ↑/Espacio saltar · golpea con la cabeza el bloque ? ROSA para la pregunta · llega a la bandera 🏁</p>
+  <div id="wrap">
+    <canvas id="game" width="800" height="450"></canvas>
+
+    <div id="overlay">
+      <h2 id="ov-title">ANIVERSARIO 2</h2>
+      <p id="ov-text">5 niveles, 5 preguntas de nuestra historia.<br>Golpea el bloque ? rosa de cada mundo y responde bien.<br>¡Sin respuesta correcta no se cruza la bandera! · 3 vidas ❤️</p>
+      <p class="go" id="ov-go">Click o ENTER para jugar</p>
+    </div>
+
+    <div id="quiz" class="hidden">
+      <div class="em">🍄❓</div>
+      <h3 id="quiz-q">Pregunta</h3>
+      <input id="quiz-input" type="text" autocomplete="off" spellcheck="false" placeholder="Escribe tu respuesta...">
+      <button id="quiz-btn">Responder 💖</button>
+      <div id="quiz-choices" class="hidden"></div>
+      <div class="fb" id="quiz-fb"></div>
+    </div>
+
+    <div id="touch">
+      <div class="tbtn" id="bLeft">◀</div>
+      <div class="tbtn" id="bRight">▶</div>
+      <div class="tbtn" id="bJump">⤒</div>
+    </div>
+  </div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const VIEW_W = canvas.width, VIEW_H = canvas.height;
+
+// ---------- AUDIO ----------
+let actx = null;
+function beep(freq, dur, type, vol) {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'square'; o.frequency.value = freq;
+    g.gain.value = vol || 0.06;
+    o.connect(g); g.connect(actx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + (dur || 0.1));
+    o.stop(actx.currentTime + (dur || 0.1));
+  } catch (e) {}
+}
+const sfx = {
+  jump:  () => beep(520, 0.12, 'square', 0.05),
+  coin:  () => { beep(988, 0.07, 'square', 0.05); setTimeout(()=>beep(1319,0.12,'square',0.05),70); },
+  mush:  () => { beep(523,0.08,'square',0.06); setTimeout(()=>beep(784,0.08,'square',0.06),80); setTimeout(()=>beep(1047,0.12,'square',0.06),160); },
+  stomp: () => beep(160, 0.12, 'square', 0.07),
+  hurt:  () => { beep(330,0.15,'sawtooth',0.07); setTimeout(()=>beep(160,0.22,'sawtooth',0.07),120); },
+  win:   () => { [659,784,1047,1319].forEach((f,i)=>setTimeout(()=>beep(f,0.15,'square',0.06),i*140)); },
+  wrong: () => { beep(200,0.18,'sawtooth',0.06); setTimeout(()=>beep(140,0.22,'sawtooth',0.06),150); },
+};
+
+// ---------- CONSTANTES ----------
+const GRAVITY = 0.62;
+const MOVE = 3.6, RUN = 5.2, JUMP = 13.2;
+const FY = VIEW_H - 50;
+
+// ---------- NIVELES (5 mundos = 5 preguntas) ----------
+function buildLevels() {
+  return [
+    // ---- 1 · MÉXICO (mexicano) ----
+    {
+      name: 'México 🌵', sky:'#f3b06a', far:'#d98a3c', grass:'#e0b34d', dirt:'#b9742b',
+      width: 2400,
+      question: { q:'¿Dónde nos conocimos?', answers:['rancho mx','rancho','ranchomx','el rancho'] },
+      platforms: [
+        {x:0,y:FY,w:700,h:50,t:'ground'},
+        {x:780,y:FY,w:520,h:50,t:'ground'},
+        {x:1380,y:FY,w:1020,h:50,t:'ground'},
+        {x:260,y:320,w:150,h:30,t:'brick'},
+        {x:480,y:250,w:100,h:30,t:'q'},
+        {x:900,y:300,w:150,h:30,t:'brick'},
+        {x:1120,y:230,w:100,h:30,t:'q'},
+        {x:1500,y:300,w:150,h:30,t:'brick'},
+        {x:1760,y:240,w:100,h:30,t:'q'},
+        {x:2020,y:310,w:150,h:30,t:'brick'},
+      ],
+      pipes: [{x:620,h:90},{x:1820,h:120}],
+      decor: [{t:'cactus',x:150},{t:'cactus',x:1000},{t:'cactus',x:1600},{t:'sun',x:0}],
+      coins: [[300,275],[345,275],[945,260],[990,260],[1545,260],[1590,260],
+        [680,FY-30],[1450,FY-30],[1980,FY-30]],
+      mushrooms: [[1850,200]],
+      enemies: [{x:600,y:FY-30,min:480,max:740,vx:1.2},
+        {x:1180,y:230-30,min:1120,max:1220,vx:1},
+        {x:1600,y:FY-30,min:1400,max:1850,vx:-1.4}],
+      goal: 2300,
+    },
+    // ---- 2 · EL BOSQUE (cafés/marrón) ----
+    {
+      name: 'El Bosque', sky:'#cdab78', far:'#6f4e2e', grass:'#6f4e2e', dirt:'#4a3018',
+      width: 2800,
+      question: { q:'¿Color favorito de Charlie?', answers:['cafe','marron','cafe oscuro','brown','chocolate'] },
+      platforms: [
+        {x:0,y:FY,w:500,h:50,t:'ground'},
+        {x:600,y:FY,w:300,h:50,t:'ground'},
+        {x:1000,y:FY,w:250,h:50,t:'ground'},
+        {x:1350,y:FY,w:300,h:50,t:'ground'},
+        {x:1750,y:FY,w:1050,h:50,t:'ground'},
+        {x:280,y:330,w:120,h:30,t:'brick'},
+        {x:520,y:260,w:100,h:30,t:'q'},
+        {x:760,y:200,w:120,h:30,t:'brick'},
+        {x:1050,y:300,w:120,h:30,t:'brick'},
+        {x:1280,y:230,w:100,h:30,t:'q'},
+        {x:1550,y:300,w:150,h:30,t:'brick'},
+        {x:1900,y:250,w:130,h:30,t:'brick'},
+        {x:2150,y:330,w:130,h:30,t:'brick'},
+        {x:2400,y:250,w:100,h:30,t:'q'},
+      ],
+      pipes: [{x:1300,h:100},{x:2050,h:80}],
+      decor: [{t:'bush',x:300},{t:'bush',x:1450},{t:'bush',x:2300}],
+      coins: [[330,300],[565,225],[1100,265],[1620,265],[1660,265],[2205,295],
+        [430,FY-30],[700,FY-30],[1100,FY-30],[1450,FY-30],[2000,FY-30],[2350,FY-30]],
+      mushrooms: [[810,165]],
+      enemies: [{x:700,y:FY-30,min:600,max:880,vx:1.5},
+        {x:1100,y:FY-30,min:1000,max:1240,vx:-1.2},
+        {x:2000,y:FY-30,min:1760,max:2200,vx:1.6}],
+      goal: 2700,
+    },
+    // ---- 3 · LAS OFICINAS (empresas) ----
+    {
+      name: 'Las Oficinas 🏢', sky:'#5a6b88', far:'#3a4760', grass:'#7a8aa0', dirt:'#4a5670',
+      width: 3200,
+      question: { q:'¿Cómo se llama la empresa de Charlie?', answers:['didimosoft','didimo soft','didimo'] },
+      platforms: [
+        {x:0,y:FY,w:400,h:50,t:'ground'},
+        {x:520,y:FY,w:200,h:50,t:'ground'},
+        {x:840,y:FY,w:200,h:50,t:'ground'},
+        {x:1160,y:FY,w:200,h:50,t:'ground'},
+        {x:1480,y:FY,w:250,h:50,t:'ground'},
+        {x:1850,y:FY,w:200,h:50,t:'ground'},
+        {x:2170,y:FY,w:1030,h:50,t:'ground'},
+        {x:250,y:330,w:110,h:30,t:'brick'},
+        {x:460,y:260,w:100,h:30,t:'q'},
+        {x:700,y:200,w:110,h:30,t:'brick'},
+        {x:950,y:260,w:110,h:30,t:'brick'},
+        {x:1200,y:200,w:100,h:30,t:'q'},
+        {x:1450,y:280,w:120,h:30,t:'brick'},
+        {x:1720,y:220,w:100,h:30,t:'brick'},
+        {x:2000,y:280,w:120,h:30,t:'brick'},
+        {x:2300,y:230,w:120,h:30,t:'brick'},
+        {x:2600,y:300,w:130,h:30,t:'brick'},
+        {x:2880,y:240,w:100,h:30,t:'q'},
+      ],
+      pipes: [{x:1380,h:90}],
+      decor: [{t:'building',x:120},{t:'building',x:780},{t:'building',x:1550},{t:'building',x:2350},{t:'building',x:2950}],
+      coins: [[290,290],[505,225],[995,225],[1505,245],[2045,245],[2645,265],
+        [600,FY-30],[920,FY-30],[1240,FY-30],[1560,FY-30],[1930,FY-30],[2400,FY-30],[2700,FY-30]],
+      mushrooms: [[745,165]],
+      enemies: [{x:600,y:FY-30,min:520,max:700,vx:1.3},
+        {x:1240,y:FY-30,min:1160,max:1340,vx:1.4},
+        {x:1600,y:FY-30,min:1480,max:1710,vx:1.5},
+        {x:2500,y:FY-30,min:2170,max:2800,vx:1.7}],
+      goal: 3120,
+    },
+    // ---- 4 · LA COCINA (comida) ----
+    {
+      name: 'La Cocina 🍽️', sky:'#f2d98a', far:'#d9b75a', grass:'#7fbf3f', dirt:'#a9772b',
+      width: 2600,
+      question: { q:'¿Comida favorita de Charlie?', answers:['garbanzos','garbanzo','los garbanzos'] },
+      platforms: [
+        {x:0,y:FY,w:600,h:50,t:'ground'},
+        {x:700,y:FY,w:400,h:50,t:'ground'},
+        {x:1200,y:FY,w:400,h:50,t:'ground'},
+        {x:1700,y:FY,w:900,h:50,t:'ground'},
+        {x:260,y:330,w:120,h:30,t:'brick'},
+        {x:500,y:260,w:100,h:30,t:'q'},
+        {x:780,y:300,w:120,h:30,t:'brick'},
+        {x:1050,y:230,w:100,h:30,t:'q'},
+        {x:1320,y:300,w:140,h:30,t:'brick'},
+        {x:1750,y:260,w:130,h:30,t:'brick'},
+        {x:2050,y:300,w:100,h:30,t:'q'},
+        {x:2300,y:240,w:120,h:30,t:'brick'},
+      ],
+      pipes: [{x:1500,h:90}],
+      decor: [{t:'bush',x:350},{t:'bush',x:1400},{t:'bush',x:2200}],
+      coins: [[300,300],[820,260],[1360,260],[1790,220],[2340,200],
+        [650,FY-30],[950,FY-30],[1400,FY-30],[1900,FY-30],[2200,FY-30]],
+      mushrooms: [[1790,220]],
+      enemies: [{x:800,y:FY-30,min:700,max:1080,vx:1.3},
+        {x:1300,y:FY-30,min:1200,max:1580,vx:-1.4},
+        {x:2000,y:FY-30,min:1700,max:2400,vx:1.5}],
+      goal: 2500,
+    },
+    // ---- 5 · EL FUTURO (bebé) ----
+    {
+      name: 'El Futuro 👶', sky:'#ffc0d9', far:'#ff9ec4', grass:'#8fdc8f', dirt:'#b9742b',
+      width: 2800,
+      question: { q:'¿Cómo se va a llamar nuestra hija?', answers:['juanita','juana','la juanita'] },
+      platforms: [
+        {x:0,y:FY,w:500,h:50,t:'ground'},
+        {x:600,y:FY,w:400,h:50,t:'ground'},
+        {x:1100,y:FY,w:400,h:50,t:'ground'},
+        {x:1600,y:FY,w:400,h:50,t:'ground'},
+        {x:2100,y:FY,w:700,h:50,t:'ground'},
+        {x:250,y:330,w:110,h:30,t:'brick'},
+        {x:470,y:260,w:100,h:30,t:'q'},
+        {x:720,y:210,w:110,h:30,t:'brick'},
+        {x:980,y:270,w:100,h:30,t:'q'},
+        {x:1250,y:220,w:110,h:30,t:'brick'},
+        {x:1520,y:290,w:100,h:30,t:'q'},
+        {x:1800,y:230,w:120,h:30,t:'brick'},
+        {x:2150,y:300,w:130,h:30,t:'brick'},
+        {x:2450,y:240,w:100,h:30,t:'q'},
+      ],
+      pipes: [{x:1050,h:90}],
+      decor: [{t:'bush',x:300},{t:'bush',x:1600},{t:'bush',x:2400}],
+      coins: [[290,290],[510,220],[1020,230],[1560,250],[2190,260],
+        [650,FY-30],[1150,FY-30],[1650,FY-30],[2250,FY-30]],
+      mushrooms: [[760,170]],
+      enemies: [{x:650,y:FY-30,min:600,max:980,vx:1.3},
+        {x:1150,y:FY-30,min:1100,max:1480,vx:-1.3},
+        {x:1700,y:FY-30,min:1600,max:1980,vx:1.4},
+        {x:2300,y:FY-30,min:2100,max:2750,vx:1.6}],
+      goal: 2700,
+    },
+    // ---- 6 · EL GRAN FINAL (nivel ganador · pregunta de opción múltiple) ----
+    {
+      name: 'El Gran Final 🎁', sky:'#ffb3d9', far:'#ff7ab3', grass:'#ffd24d', dirt:'#d98a3c',
+      width: 2600,
+      question: {
+        q:'🎁 ¿Qué crees que es tu primer regalo?',
+        options:['Este juego 🎮','Ropa 👗','Accesorios 💍'],
+        answers:['ropa']
+      },
+      platforms: [
+        {x:0,y:FY,w:600,h:50,t:'ground'},
+        {x:700,y:FY,w:400,h:50,t:'ground'},
+        {x:1200,y:FY,w:400,h:50,t:'ground'},
+        {x:1700,y:FY,w:900,h:50,t:'ground'},
+        {x:260,y:330,w:120,h:30,t:'brick'},
+        {x:500,y:260,w:100,h:30,t:'q'},
+        {x:780,y:300,w:120,h:30,t:'brick'},
+        {x:1050,y:230,w:100,h:30,t:'q'},
+        {x:1320,y:300,w:140,h:30,t:'brick'},
+        {x:1750,y:260,w:130,h:30,t:'brick'},
+        {x:2050,y:260,w:100,h:30,t:'q'},
+        {x:2300,y:240,w:120,h:30,t:'brick'},
+      ],
+      pipes: [{x:1500,h:90}],
+      decor: [{t:'heart',x:200},{t:'heart',x:1000},{t:'heart',x:1900},{t:'heart',x:2450}],
+      coins: [[300,300],[820,260],[1360,260],[1790,220],[2340,200],
+        [650,FY-30],[950,FY-30],[1400,FY-30],[1900,FY-30],[2200,FY-30]],
+      mushrooms: [[1790,220]],
+      enemies: [{x:800,y:FY-30,min:700,max:1080,vx:1.2},
+        {x:1300,y:FY-30,min:1200,max:1580,vx:-1.3}],
+      goal: 2500,
+    },
+  ];
+}
+let LEVELS = buildLevels();
+
+// ---------- ESTADO ----------
+let levelIdx=0, level=null, cam=0;
+let lives=3, score=0, coinsGot=0;
+let state='menu';
+let coins=[], mushrooms=[], enemies=[], particles=[], popcoins=[];
+let big=false, T=0, hintMsg='', hintT=0;
+let answeredLevels=[], finishedAll=false, levelIntroT=0;
+const SAVE_KEY='aniv2_save_v2';
+
+const player = { x:40, y:0, w:30, h:48, vx:0, vy:0, onGround:false, facing:1, invuln:0, animT:0 };
+
+function loadLevel(i) {
+  level = LEVELS[i]; cam = 0;
+  const dMul = 1 + i*0.05; // cada mundo un poco más rápido (difícil pero no imposible)
+  coins = level.coins.map(c=>({x:c[0],y:c[1],taken:false,t:Math.random()*6}));
+  mushrooms = level.mushrooms.map(m=>({x:m[0],y:m[1],taken:false}));
+  enemies = level.enemies.map(e=>({x:e.x,y:e.y,w:32,h:30,vx:e.vx*dMul,min:e.min,max:e.max,dead:false}));
+  particles = []; popcoins = []; hintT = 0; levelIntroT = 170;
+  // bloques interactivos: 1º=hongo, último=PREGUNTA, resto=moneda
+  const qs = level.platforms.filter(p=>p.t==='q');
+  qs.forEach(p=>{ p.used=false; p.bump=0; p.gift='coin'; });
+  if (qs.length){ qs[0].gift='mush'; qs[qs.length-1].gift='question'; }
+  for (const p of level.platforms) p.bump = 0;
+  level.answered = !!answeredLevels[i];
+  if (level.answered && qs.length) qs[qs.length-1].used = true; // ya respondida antes
+  player.x=40; player.y=FY-player.h;
+  player.vx=0; player.vy=0; player.invuln=60; player.facing=1;
+  big=false; player.h=48;
+}
+// ---------- GUARDADO (vidas diarias + progreso) ----------
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function loadSave(){ try{ return JSON.parse(localStorage.getItem(SAVE_KEY)); }catch(e){ return null; } }
+function saveState(){
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify({
+    day: todayStr(), lives, levelIdx, score, coinsGot, answered: answeredLevels, finishedAll
+  })); }catch(e){}
+}
+
+function init(){
+  LEVELS = buildLevels();
+  answeredLevels = new Array(LEVELS.length).fill(false);
+  const s = loadSave(), today = todayStr();
+  if (s) {
+    levelIdx = Math.min(s.levelIdx||0, LEVELS.length-1);
+    score = s.score||0; coinsGot = s.coinsGot||0;
+    if (Array.isArray(s.answered)) for (let i=0;i<LEVELS.length;i++) answeredLevels[i]=!!s.answered[i];
+    finishedAll = !!s.finishedAll;
+    lives = (s.day===today) ? s.lives : 3; // nuevo día => vidas llenas
+  } else {
+    levelIdx=0; score=0; coinsGot=0; finishedAll=false; lives=3;
+  }
+  saveState();
+  loadLevel(levelIdx);
+  if (lives<=0) { state='gameover'; showLocked(); }
+  else if (finishedAll) { state='win'; showWin(); }
+  else { state='menu'; showMenu(); }
+}
+function beginPlay(){ overlay.classList.add('hidden'); quizDiv.classList.add('hidden'); state='playing'; }
+
+function showMenu(){
+  showOverlay('💞 ANIVERSARIO 2 💞',
+    `<b>Cómo se juega:</b><br>` +
+    `• Muévete con ← → (o los botones en celular) y salta con ↑ / Espacio.<br>` +
+    `• <b>Debes SACAR TODOS los bloques ?</b> de cada mundo (golpéalos con la cabeza saltando).<br>` +
+    `• El bloque <b>? ROSA</b> esconde una pregunta de nuestra historia: respóndela bien.<br>` +
+    `• Pisa a los enemigos y esquívalos. Recoge monedas y hongos 🍄.<br>` +
+    `• Sin sacar todos los ? y responder, <b>la bandera 🏁 queda cerrada</b>.<br>` +
+    `• Tienes <b>3 vidas ❤️ por día</b>: si las pierdes, vuelven mañana.<br>` +
+    `<br>Vas en el <b>Mundo ${levelIdx+1}/${LEVELS.length}</b> · Vidas: ${'❤️'.repeat(lives)}`,
+    'Click o ENTER para jugar');
+}
+function showLocked(){
+  showOverlay('SIN VIDAS 💔',
+    `Perdiste tus 3 vidas de hoy.<br>Vuelve <b>mañana</b> para 3 vidas nuevas 💞<br>(Progreso guardado: Mundo ${levelIdx+1}/${LEVELS.length})`,
+    '⏳ Hasta mañana');
+}
+function showWin(){
+  showOverlay('¡GANASTE! 🏆🎁',
+    `<div style="font-size:14px;line-height:1.5;max-width:640px;margin:0 auto;">` +
+      `Tu primer regalo es… ¡<b>ROPA</b>! 👗💞<br>` +
+      `<br>🔑 <b>Palabra secreta:</b> dile a Charlie:<br>` +
+      `<b style="color:#ffd75e;font-size:16px;">«Charlie, dame mi ropa»</b><br>` +
+      `Si no la dices… ¡no te la da! 😜<br>` +
+      `<br>📜 <b>Pista del segundo regalo:</b><br>` +
+      `Entrégale a Charlie un <b>papel en blanco</b> el día <b>MARTES</b> 🗓️, junto con esto:<br>` +
+      `<br><i style="color:#ffd9e6;display:block;text-align:left;background:rgba(255,255,255,.08);padding:12px 14px;border-radius:10px;border-left:3px solid #e23b6d;">` +
+        `Feliz aniversario, mi amor. Gracias por estos dos años a mi lado, por crecer y madurar conmigo, por aprender a morir a tus propios caprichos con tal de hacerme feliz. Gracias por buscar más a Dios cada día, porque eso nos sostiene y nos une como pareja. Gracias por soñar conmigo esa familia que tanto anhelamos y por querer construir todo juntos, paso a paso, de la mano. Eres mi compañera, mi refugio y mi mejor regalo. Aquí seguimos, y por muchos años más. Te amo.` +
+      `</i>` +
+      `<br>Monedas: ${coinsGot} · Puntos: ${score}<br>` +
+      `<br>💞 Feliz Aniversario 2 ❤️` +
+    `</div>`,
+    'Click o ENTER para jugar de nuevo');
+}
+
+// ---------- CONTROLES ----------
+const keys={};
+document.addEventListener('keydown', e=>{
+  if (state==='quiz') return; // el input de la pregunta maneja el teclado
+  keys[e.code]=true;
+  if (e.code==='Enter') advance();
+  if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+  if (!actx){ try{actx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} }
+});
+document.addEventListener('keyup', e=>{ keys[e.code]=false; });
+const overlay = document.getElementById('overlay');
+overlay.addEventListener('click', advance);
+
+function advance() {
+  if (state==='menu') { beginPlay(); }
+  else if (state==='win') {
+    // volver a jugar desde el inicio (las vidas siguen siendo diarias)
+    levelIdx=0; score=0; coinsGot=0; finishedAll=false;
+    answeredLevels=new Array(LEVELS.length).fill(false);
+    saveState(); loadLevel(0); beginPlay();
+  }
+  else if (state==='gameover') {
+    // solo se puede continuar si ya es un nuevo día (vidas repuestas)
+    const s=loadSave();
+    if (!s || s.day!==todayStr()) { lives=3; saveState(); loadLevel(levelIdx); beginPlay(); }
+  }
+  else if (state==='levelclear') {
+    levelIdx++;
+    if (levelIdx>=LEVELS.length) { finishedAll=true; saveState(); state='win'; showWin(); }
+    else { saveState(); loadLevel(levelIdx); beginPlay(); }
+  }
+}
+function showOverlay(title,text,go) {
+  document.getElementById('ov-title').textContent=title;
+  document.getElementById('ov-text').innerHTML=text;
+  document.getElementById('ov-go').textContent=go||'Click o ENTER para continuar';
+  overlay.classList.remove('hidden');
+}
+
+// ---------- QUIZ ----------
+const quizDiv=document.getElementById('quiz');
+const quizQ=document.getElementById('quiz-q');
+const quizInput=document.getElementById('quiz-input');
+const quizBtn=document.getElementById('quiz-btn');
+const quizChoices=document.getElementById('quiz-choices');
+const quizFb=document.getElementById('quiz-fb');
+let quizBlock=null;
+quizBtn.addEventListener('click', submitQuiz);
+quizInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); submitQuiz(); } e.stopPropagation(); });
+quizInput.addEventListener('keyup', e=>e.stopPropagation());
+
+function norm(s){
+  return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
+}
+function checkAnswer(input, answers){
+  const n = norm(input);
+  if (n.length < 2) return false;
+  return answers.some(a=>{ const na=norm(a); return n===na || (n.length>=3 && (n.includes(na)||na.includes(n))); });
+}
+function openQuiz(p){
+  quizBlock=p; state='quiz';
+  quizQ.textContent=level.question.q;
+  quizFb.textContent='';
+  const q=level.question;
+  if (q.options) {
+    // pregunta de opción múltiple (botones)
+    quizInput.classList.add('hidden'); quizBtn.classList.add('hidden');
+    quizChoices.classList.remove('hidden'); quizChoices.innerHTML='';
+    q.options.forEach(opt=>{
+      const b=document.createElement('button');
+      b.className='choice'; b.textContent=opt;
+      b.addEventListener('click', ()=>tryAnswer(opt));
+      quizChoices.appendChild(b);
+    });
+  } else {
+    // pregunta de texto libre
+    quizChoices.classList.add('hidden'); quizChoices.innerHTML='';
+    quizInput.classList.remove('hidden'); quizBtn.classList.remove('hidden');
+    quizInput.value=''; setTimeout(()=>quizInput.focus(),60);
+  }
+  quizDiv.classList.remove('hidden');
+}
+function submitQuiz(){ tryAnswer(quizInput.value); }
+function tryAnswer(text){
+  if (checkAnswer(text, level.question.answers)) quizSuccess();
+  else quizFail();
+}
+function quizSuccess(){
+  level.answered=true; answeredLevels[levelIdx]=true;
+  quizBlock.used=true; quizBlock.bump=9;
+  const cx=quizBlock.x+quizBlock.w/2;
+  for(let k=0;k<3;k++) popcoins.push({x:cx-22+k*22,y:quizBlock.y-10,vy:-7-k*0.6,life:38});
+  score+=300; coinsGot+=3; addParticles(cx,quizBlock.y,'#9be39b',16);
+  sfx.win(); saveState();
+  quizDiv.classList.add('hidden');
+  state='playing';
+}
+function quizFail(){
+  sfx.wrong();
+  quizFb.style.color='#ff9eb5';
+  quizFb.textContent='Mmm, esa no es… 💭 ¡inténtalo otra vez!';
+  quizDiv.classList.remove('shake'); void quizDiv.offsetWidth; quizDiv.classList.add('shake');
+  if (!level.question.options){ quizInput.focus(); quizInput.select(); }
+}
+
+// ---------- UTIL ----------
+function overlap(a,b){ return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y; }
+function addParticles(x,y,color,n){
+  for(let i=0;i<n;i++) particles.push({x,y,vx:(Math.random()-0.5)*4,vy:Math.random()*-3-1,life:30,color});
+}
+
+// ---------- UPDATE ----------
+function update() {
+  T++;
+  if (state!=='playing') return;
+  player.animT++;
+  if (hintT>0) hintT--;
+  if (levelIntroT>0) levelIntroT--;
+
+  const running = keys['ShiftLeft']||keys['ShiftRight'];
+  const sp = running?RUN:MOVE;
+  player.vx=0;
+  if (keys['ArrowLeft']||keys['KeyA']){ player.vx=-sp; player.facing=-1; }
+  if (keys['ArrowRight']||keys['KeyD']){ player.vx=sp; player.facing=1; }
+  if ((keys['ArrowUp']||keys['Space']||keys['KeyW'])&&player.onGround){ player.vy=-JUMP; player.onGround=false; sfx.jump(); }
+
+  player.vy+=GRAVITY;
+  if (player.vy>16) player.vy=16;
+  player.x+=player.vx; player.y+=player.vy;
+  if (player.x<0) player.x=0;
+  if (player.x+player.w>level.width) player.x=level.width-player.w;
+
+  const solids = level.platforms.slice();
+  for (const p of level.pipes) solids.push({x:p.x,y:FY-p.h,w:64,h:p.h});
+
+  player.onGround=false;
+  for (const p of solids) {
+    if (overlap(player,p)) {
+      const prevBottom=player.y-player.vy+player.h, prevTop=player.y-player.vy;
+      if (player.vy>=0 && prevBottom<=p.y+10){ player.y=p.y-player.h; player.vy=0; player.onGround=true; }
+      else if (player.vy<0 && prevTop>=p.y+p.h-10){ player.y=p.y+p.h; player.vy=0; bumpBlock(p); }
+      else if (player.vx>0 && (player.x+player.w-p.x)<14){ player.x=p.x-player.w; }
+      else if (player.vx<0 && (p.x+p.w-player.x)<14){ player.x=p.x+p.w; }
+    }
+  }
+
+  if (player.y>VIEW_H+100){ sfx.hurt(); loseLife(); return; }
+  if (player.invuln>0) player.invuln--;
+
+  cam = player.x+player.w/2-VIEW_W/2;
+  if (cam<0) cam=0;
+  if (cam>level.width-VIEW_W) cam=level.width-VIEW_W;
+
+  for (const c of coins) {
+    if (c.taken) continue;
+    c.t+=0.15;
+    if (overlap(player,{x:c.x-11,y:c.y-13,w:22,h:26})) {
+      c.taken=true; score+=100; coinsGot++; sfx.coin(); addParticles(c.x,c.y,'#ffd75e',6);
+    }
+  }
+  for (const m of mushrooms) {
+    if (m.taken) continue;
+    if (overlap(player,{x:m.x-14,y:m.y-14,w:28,h:28})) {
+      m.taken=true; score+=500; sfx.mush(); addParticles(m.x,m.y,'#ff5d8f',10);
+      if (!big){ big=true; player.h=60; player.y-=12; }
+    }
+  }
+  for (const e of enemies) {
+    if (e.dead) continue;
+    e.x+=e.vx;
+    if (e.x<e.min||e.x+e.w>e.max) e.vx*=-1;
+    if (overlap(player,e)) {
+      const stomp = player.vy>0 && (player.y+player.h-e.y)<28;
+      if (stomp){ e.dead=true; player.vy=-9; score+=200; sfx.stomp(); addParticles(e.x+e.w/2,e.y,'#8a5a2b',8); }
+      else if (player.invuln===0) {
+        if (big){ big=false; player.h=48; player.invuln=90; sfx.hurt(); }
+        else { sfx.hurt(); loseLife(); return; }
+      }
+    }
+  }
+  for (const pt of particles){ pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.2; pt.life--; }
+  particles=particles.filter(p=>p.life>0);
+  for (const p of level.platforms){ if (p.bump>0){ p.bump-=1.5; if(p.bump<0) p.bump=0; } }
+  for (const pc of popcoins){ pc.y+=pc.vy; pc.vy+=0.5; pc.life--; }
+  popcoins=popcoins.filter(pc=>pc.life>0);
+  for (const m of mushrooms){ if (m.vy && m.y>m.target){ m.y+=m.vy; if (m.y<=m.target){ m.y=m.target; m.vy=0; } } }
+
+  // META: bloqueada hasta sacar TODOS los ? y responder la pregunta
+  if (player.x+player.w>level.goal) {
+    const qBlocks = level.platforms.filter(p=>p.t==='q');
+    const remaining = qBlocks.filter(p=>!p.used).length;
+    if (remaining>0) {
+      player.x = level.goal - player.w - 6; player.vx = 0;
+      if (hintT<=0) sfx.wrong();
+      hintMsg = level.answered
+        ? `🔒 Te faltan ${remaining} bloque(s) ? por sacar`
+        : `🔒 Saca TODOS los ? y responde el bloque ? ROSA (faltan ${remaining})`;
+      hintT = 110;
+    } else {
+      sfx.win(); state='levelclear';
+      const last = levelIdx>=LEVELS.length-1;
+      showOverlay(`¡Mundo ${levelIdx+1} superado! 🏁`,
+        `${level.name} completado · ¡Sacaste todos los ? y respondiste!<br>Monedas: ${coinsGot} · Puntos: ${score}`,
+        last?'Click o ENTER para el final 🏆':'Click o ENTER para el siguiente mundo');
+    }
+  }
+}
+
+function bumpBlock(p) {
+  if (p.t==='q' && !p.used) {
+    if (p.gift==='question') {
+      if (!level.answered){ p.bump=6; openQuiz(p); }
+      return;
+    }
+    p.bump=9; p.used=true;
+    const cx=p.x+p.w/2;
+    if (p.gift==='mush') {
+      mushrooms.push({ x:cx, y:p.y-2, taken:false, vy:-1.4, target:p.y-30 });
+      sfx.mush();
+    } else {
+      popcoins.push({ x:cx, y:p.y-10, vy:-7, life:32 });
+      score+=100; coinsGot++; sfx.coin();
+    }
+    addParticles(cx,p.y,'#ffe88a',6);
+  } else if (p.t==='brick') {
+    p.bump=9; sfx.stomp(); addParticles(p.x+p.w/2,p.y,'#d2691e',5);
+  }
+}
+
+function loseLife() {
+  lives--; saveState();
+  if (lives<=0){ state='gameover'; showLocked(); }
+  else { player.x=Math.max(0,player.x-120); player.y=0; player.vy=0; player.invuln=100; big=false; player.h=48; }
+}
+
+// ====================================================
+//  DIBUJO
+// ====================================================
+function px(x){ return Math.round(x-cam); }
+
+function drawBackground() {
+  ctx.fillStyle=level.sky; ctx.fillRect(0,0,VIEW_W,VIEW_H);
+  ctx.fillStyle=level.far;
+  for (let i=0;i<6;i++){
+    const hx=((i*520 - cam*0.3)%(VIEW_W+520)+VIEW_W+520)%(VIEW_W+520)-260;
+    ctx.beginPath(); ctx.arc(hx,FY,95,Math.PI,0); ctx.fill();
+  }
+  for (let i=0;i<5;i++){
+    const cx=((i*360 - cam*0.5)%(VIEW_W+360)+VIEW_W+360)%(VIEW_W+360)-180;
+    drawCloud(cx, 55+(i%2)*45);
+  }
+}
+function drawCloud(x,y){
+  ctx.fillStyle='#fff';
+  ctx.beginPath();
+  ctx.arc(x,y,16,0,7); ctx.arc(x+18,y-6,20,0,7); ctx.arc(x+40,y,16,0,7); ctx.arc(x+20,y+8,18,0,7);
+  ctx.fill();
+}
+function drawHill(x){ const y=FY,X=px(x); ctx.fillStyle='#3aa83a'; ctx.beginPath(); ctx.moveTo(X-60,y); ctx.quadraticCurveTo(X,y-90,X+60,y); ctx.fill(); }
+function drawBush(x){
+  const y=FY,X=px(x);
+  ctx.fillStyle='#3aa83a';
+  ctx.beginPath(); ctx.arc(X,y-14,16,Math.PI,0); ctx.arc(X+22,y-20,20,Math.PI,0); ctx.arc(X+44,y-14,16,Math.PI,0);
+  ctx.rect(X-16,y-14,80,14); ctx.fill();
+}
+function drawSun(){
+  const X=px(2200)>0?px(2200):VIEW_W-90;
+  ctx.fillStyle='#ffe08a';
+  ctx.beginPath(); ctx.arc(VIEW_W-90,90,42,0,7); ctx.fill();
+  ctx.fillStyle='rgba(255,224,138,.4)';
+  ctx.beginPath(); ctx.arc(VIEW_W-90,90,58,0,7); ctx.fill();
+}
+function drawCactus(x){
+  const y=FY, X=px(x);
+  ctx.fillStyle='#2f9e44';
+  ctx.fillRect(X-9,y-72,18,72);
+  ctx.fillRect(X-30,y-46,14,12); ctx.fillRect(X-30,y-46,9,28);
+  ctx.fillRect(X+16,y-58,14,12); ctx.fillRect(X+21,y-58,9,38);
+  ctx.fillStyle='#1f7a30';
+  ctx.fillRect(X+5,y-72,4,72);
+  ctx.fillStyle='#ff5d8f';
+  ctx.beginPath(); ctx.arc(X,y-74,4,0,7); ctx.fill();
+}
+function drawBuilding(x){
+  const y=FY, X=px(x);
+  const h=150 + (Math.abs(x)%4)*26, w=96;
+  if (X+w<0||X>VIEW_W) return;
+  ctx.fillStyle='#2c3a55'; ctx.fillRect(X,y-h,w,h);
+  ctx.fillStyle='#1d2740'; ctx.fillRect(X,y-h,w,7);
+  for (let wy=y-h+18; wy<y-18; wy+=26)
+    for (let wx=X+12; wx<X+w-14; wx+=26){
+      ctx.fillStyle = (((wx+wy)>>3)%2)?'#ffd75e':'#46587a';
+      ctx.fillRect(wx,wy,16,16);
+    }
+}
+function drawHeart(x){
+  const X=px(x), y=FY-110+Math.sin((T+x)*0.05)*6, s=22;
+  ctx.fillStyle='#ff5d8f';
+  ctx.beginPath();
+  ctx.moveTo(X, y+s*0.3);
+  ctx.bezierCurveTo(X, y, X-s, y, X-s, y+s*0.35);
+  ctx.bezierCurveTo(X-s, y+s*0.7, X, y+s*0.95, X, y+s*1.2);
+  ctx.bezierCurveTo(X, y+s*0.95, X+s, y+s*0.7, X+s, y+s*0.35);
+  ctx.bezierCurveTo(X+s, y, X, y, X, y+s*0.3);
+  ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.5)';
+  ctx.beginPath(); ctx.arc(X-7,y+s*0.35,3,0,7); ctx.fill();
+}
+function drawDecor(){
+  for (const d of level.decor){
+    if (d.t==='hill') drawHill(d.x);
+    else if (d.t==='bush') drawBush(d.x);
+    else if (d.t==='cactus') drawCactus(d.x);
+    else if (d.t==='building') drawBuilding(d.x);
+    else if (d.t==='heart') drawHeart(d.x);
+    else if (d.t==='sun') drawSun();
+  }
+}
+
+function drawGround(p){
+  const X=px(p.x);
+  ctx.fillStyle=level.dirt||'#c8702a';
+  ctx.fillRect(X,p.y,p.w,p.h);
+  ctx.fillStyle=level.grass||'#5fad2e';
+  ctx.fillRect(X,p.y,p.w,8);
+  ctx.fillStyle='rgba(0,0,0,.18)';
+  ctx.fillRect(X,p.y+8,p.w,3);
+  ctx.strokeStyle='rgba(0,0,0,.22)'; ctx.lineWidth=2;
+  for (let bx=0; bx<p.w; bx+=32)
+    for (let by=11; by<p.h; by+=20){
+      const off=(Math.floor((by-11)/20)%2)?16:0;
+      ctx.strokeRect(X+bx+off, p.y+by, 32, 20);
+    }
+}
+function drawBrick(p){
+  const X=px(p.x);
+  const cells=Math.max(1,Math.round(p.w/25)), cw=p.w/cells;
+  for (let i=0;i<cells;i++){
+    const bx=X+i*cw;
+    ctx.fillStyle='#b5521e'; ctx.fillRect(bx,p.y,cw,p.h);
+    ctx.fillStyle='#d2691e'; ctx.fillRect(bx+1,p.y+1,cw-2,p.h-2);
+    ctx.strokeStyle='#7a3410'; ctx.lineWidth=2; ctx.strokeRect(bx+1,p.y+1,cw-2,p.h-2);
+    ctx.beginPath(); ctx.moveTo(bx+1,p.y+p.h/2); ctx.lineTo(bx+cw-1,p.y+p.h/2); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.18)'; ctx.fillRect(bx+2,p.y+2,cw-4,2);
+  }
+}
+function drawQ(p){
+  const X=px(p.x);
+  const cells=Math.max(1,Math.round(p.w/50)), cw=p.w/cells;
+  const glow=(Math.sin(T*0.12)*0.5+0.5);
+  const special = p.gift==='question';
+  for (let i=0;i<cells;i++){
+    const bx=X+i*cw;
+    ctx.fillStyle = special?'#c9407a':'#e8a72e';
+    ctx.fillRect(bx,p.y,cw,p.h);
+    ctx.fillStyle = special?`rgb(235,${100+glow*70|0},170)`:`rgb(245,${190+glow*40|0},60)`;
+    ctx.fillRect(bx+2,p.y+2,cw-4,p.h-4);
+    ctx.fillStyle = special?'#7a1f45':'#7a4a10';
+    [[4,4],[cw-8,4],[4,p.h-8],[cw-8,p.h-8]].forEach(o=>ctx.fillRect(bx+o[0],p.y+o[1],3,3));
+    ctx.fillStyle='#fff';
+    ctx.font='bold '+Math.round(p.h*0.6)+'px Segoe UI';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(special?'?':'?', bx+cw/2, p.y+p.h/2+1);
+    ctx.textBaseline='alphabetic';
+  }
+}
+function drawUsedBlock(p){
+  const X=px(p.x);
+  const cells=Math.max(1,Math.round(p.w/50)), cw=p.w/cells;
+  for (let i=0;i<cells;i++){
+    const bx=X+i*cw;
+    ctx.fillStyle='#9a6b1e'; ctx.fillRect(bx,p.y,cw,p.h);
+    ctx.fillStyle='#7a5214'; ctx.fillRect(bx+2,p.y+2,cw-4,p.h-4);
+    ctx.fillStyle='#5a3a0e';
+    [[4,4],[cw-8,4],[4,p.h-8],[cw-8,p.h-8]].forEach(o=>ctx.fillRect(bx+o[0],p.y+o[1],3,3));
+  }
+}
+function drawPlatform(p){
+  if (p.t==='ground') drawGround(p);
+  else if (p.t==='q') (p.used ? drawUsedBlock(p) : drawQ(p));
+  else drawBrick(p);
+}
+function drawPipe(p){
+  const X=px(p.x), topY=FY-p.h;
+  ctx.fillStyle='#2aa12a'; ctx.fillRect(X+6,topY+22,52,p.h-22);
+  ctx.fillStyle='#3ad13a'; ctx.fillRect(X+12,topY+22,10,p.h-22);
+  ctx.fillStyle='#1d7a1d'; ctx.fillRect(X+48,topY+22,8,p.h-22);
+  ctx.fillStyle='#2aa12a'; ctx.fillRect(X,topY,64,24);
+  ctx.fillStyle='#3ad13a'; ctx.fillRect(X+4,topY+4,12,16);
+  ctx.fillStyle='#1d7a1d'; ctx.fillRect(X+50,topY+4,10,16);
+  ctx.strokeStyle='#0f4d0f'; ctx.lineWidth=2; ctx.strokeRect(X,topY,64,24);
+}
+function drawCoin(c){
+  const X=px(c.x); if (X<-20||X>VIEW_W+20) return;
+  const sw=Math.abs(Math.cos(c.t))*9+2;
+  ctx.fillStyle='#f7b500'; ctx.beginPath(); ctx.ellipse(X,c.y,sw+2,13,0,0,7); ctx.fill();
+  ctx.fillStyle='#ffd94a'; ctx.beginPath(); ctx.ellipse(X,c.y,sw,11,0,0,7); ctx.fill();
+  if (sw>4){ ctx.fillStyle='#c98a00'; ctx.fillRect(X-1,c.y-6,2,12); }
+}
+function drawPopcoins(){
+  for (const pc of popcoins){
+    ctx.globalAlpha=Math.max(0,pc.life/38);
+    const X=px(pc.x);
+    ctx.fillStyle='#ffd94a'; ctx.beginPath(); ctx.ellipse(X,pc.y,7,11,0,0,7); ctx.fill();
+    ctx.fillStyle='#c98a00'; ctx.fillRect(X-1,pc.y-5,2,10);
+  }
+  ctx.globalAlpha=1;
+}
+function drawMushroom(m){
+  const X=px(m.x); if (X<-30||X>VIEW_W+30) return;
+  const bob = m.vy?0:Math.sin((T+m.x)*0.08)*2;
+  const y=m.y+bob;
+  ctx.fillStyle='#fce9c8'; ctx.fillRect(X-9,y-2,18,16);
+  ctx.strokeStyle='#caa46a'; ctx.lineWidth=1; ctx.strokeRect(X-9,y-2,18,16);
+  ctx.fillStyle='#000'; ctx.fillRect(X-5,y+2,3,6); ctx.fillRect(X+2,y+2,3,6);
+  ctx.fillStyle='#e52521'; ctx.beginPath(); ctx.arc(X,y-2,15,Math.PI,0); ctx.fill(); ctx.fillRect(X-15,y-3,30,4);
+  ctx.fillStyle='#b81c18'; ctx.fillRect(X-15,y-2,30,2);
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(X,y-9,4.5,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(X-9,y-4,3,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(X+9,y-4,3,0,7); ctx.fill();
+}
+function drawEnemy(e){
+  const X=px(e.x); if (X<-40||X>VIEW_W+40) return;
+  if (e.dead){ ctx.fillStyle='#8a5a2b'; ctx.fillRect(X,e.y+e.h-8,e.w,8); return; }
+  const step = Math.floor(T/10)%2;
+  ctx.fillStyle='#8a5a2b';
+  ctx.beginPath(); ctx.arc(X+e.w/2,e.y+12,e.w/2,Math.PI,0); ctx.fill();
+  ctx.fillRect(X,e.y+12,e.w,10);
+  ctx.fillStyle='#e6c39a'; ctx.fillRect(X+4,e.y+14,e.w-8,7);
+  ctx.fillStyle='#fff'; ctx.fillRect(X+6,e.y+8,7,8); ctx.fillRect(X+e.w-13,e.y+8,7,8);
+  ctx.fillStyle='#000'; const ed=e.vx>0?2:0;
+  ctx.fillRect(X+8+ed,e.y+10,3,5); ctx.fillRect(X+e.w-11+ed,e.y+10,3,5);
+  ctx.fillStyle='#5a3a1b'; ctx.fillRect(X+5,e.y+7,9,3); ctx.fillRect(X+e.w-14,e.y+7,9,3);
+  ctx.fillStyle='#2b1a0a';
+  if (step){ ctx.fillRect(X+1,e.y+e.h-6,12,6); ctx.fillRect(X+e.w-13,e.y+e.h-4,12,4); }
+  else { ctx.fillRect(X+1,e.y+e.h-4,12,4); ctx.fillRect(X+e.w-13,e.y+e.h-6,12,6); }
+}
+function drawGoal(){
+  const X=px(level.goal); if (X<-90||X>VIEW_W+90) return;
+  ctx.fillStyle='#bdbdbd'; ctx.fillRect(X,90,6,FY-90);
+  ctx.fillStyle= level.answered?'#2ecc71':'#9aa'; ctx.beginPath(); ctx.arc(X+3,86,8,0,7); ctx.fill();
+  const wave=Math.sin(T*0.1)*4;
+  ctx.fillStyle= level.answered?'#2ecc71':'#e23b6d';
+  ctx.beginPath(); ctx.moveTo(X+6,96); ctx.lineTo(X+54+wave,108); ctx.lineTo(X+6,120); ctx.fill();
+  if (!level.answered){ ctx.fillStyle='#fff'; ctx.font='bold 13px Segoe UI'; ctx.textAlign='center'; ctx.fillText('🔒', X+30, 110); }
+  ctx.fillStyle='#c0392b'; ctx.fillRect(X+30,FY-70,70,70);
+  ctx.fillStyle='#922b21';
+  for (let bx=0;bx<70;bx+=14) for (let by=0;by<70;by+=14) if((bx/14+by/14)%2) ctx.fillRect(X+30+bx,FY-70+by,14,14);
+  ctx.fillStyle='#5a1a13'; ctx.fillRect(X+55,FY-30,20,30);
+}
+function drawPlayer(){
+  const X=px(player.x), y=player.y;
+  if (player.invuln>0 && Math.floor(player.invuln/4)%2===0) return;
+  const f=player.facing;
+  const walk = player.onGround && Math.abs(player.vx)>0.3;
+  const swing = walk ? Math.sin(player.animT*0.4)*3 : 0;
+  const dress = big?'#d6336c':'#e23b6d';
+  const w=player.w;
+  ctx.fillStyle='#5a2d0c'; ctx.fillRect(X-3,y+4,w+6,26);
+  ctx.fillStyle='#ffd9b3'; ctx.fillRect(X+5,y+6,w-10,16);
+  ctx.fillStyle='#5a2d0c'; ctx.fillRect(X+3,y+2,w-6,7); ctx.fillRect(X+3,y+2,5,12); ctx.fillRect(X+w-8,y+2,5,12);
+  ctx.fillStyle='#ff3b6b'; ctx.fillRect(X+(f>0?w-8:2),y,7,5);
+  ctx.fillStyle='#222'; ctx.fillRect(X+(f>0?w-12:8),y+13,3,4);
+  ctx.fillStyle='#ff9eb5'; ctx.fillRect(X+(f>0?w-15:10),y+17,4,2);
+  const dt=y+22, dh=player.h-30;
+  ctx.fillStyle=dress;
+  ctx.beginPath(); ctx.moveTo(X+5,dt); ctx.lineTo(X+w-5,dt); ctx.lineTo(X+w+2,dt+dh); ctx.lineTo(X-2,dt+dh); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.5)'; ctx.fillRect(X+w/2-2,dt+2,4,dh-2);
+  ctx.fillStyle='#ffd9b3'; ctx.fillRect(X-2,dt+2,4,12); ctx.fillRect(X+w-2,dt+2,4,12);
+  ctx.fillStyle='#f5d6e0';
+  ctx.fillRect(X+6,y+player.h-9,7,9+swing); ctx.fillRect(X+w-13,y+player.h-9,7,9-swing);
+  ctx.fillStyle='#7a1f3d';
+  ctx.fillRect(X+5,y+player.h-2+Math.max(0,swing),9,4); ctx.fillRect(X+w-14,y+player.h-2+Math.max(0,-swing),9,4);
+}
+function drawParticles(){
+  for (const p of particles){ ctx.globalAlpha=Math.max(0,p.life/30); ctx.fillStyle=p.color; ctx.fillRect(px(p.x),p.y,4,4); }
+  ctx.globalAlpha=1;
+}
+function drawHUD(){
+  ctx.fillStyle='rgba(0,0,0,.35)'; ctx.fillRect(0,0,VIEW_W,34);
+  ctx.fillStyle='#fff'; ctx.font='bold 17px Segoe UI'; ctx.textAlign='left';
+  ctx.fillText('🪙 '+coinsGot, 14, 24);
+  ctx.fillText('PTS '+score, 110, 24);
+  ctx.textAlign='center';
+  const qLeft = level.platforms.filter(p=>p.t==='q' && !p.used).length;
+  ctx.fillText('MUNDO '+(levelIdx+1)+'/'+LEVELS.length+' · '+level.name+'   ?:'+qLeft, VIEW_W/2, 24);
+  ctx.textAlign='right';
+  let h=''; for(let i=0;i<lives;i++) h+='❤️'; for(let i=lives;i<3;i++) h+='🖤';
+  ctx.fillText(h, VIEW_W-14, 24);
+  if (hintT>0){
+    ctx.fillStyle='rgba(0,0,0,.75)'; ctx.fillRect(VIEW_W/2-250,VIEW_H-66,500,34);
+    ctx.fillStyle='#ffd75e'; ctx.font='bold 15px Segoe UI'; ctx.textAlign='center';
+    ctx.fillText(hintMsg, VIEW_W/2, VIEW_H-44);
+  }
+  // cartel de inicio de nivel
+  if (levelIntroT>0){
+    const a = Math.min(1, levelIntroT/40);
+    ctx.globalAlpha = a;
+    ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(VIEW_W/2-200,VIEW_H/2-60,400,120);
+    ctx.fillStyle='#fff'; ctx.font='bold 30px Segoe UI'; ctx.textAlign='center';
+    ctx.fillText('MUNDO '+(levelIdx+1)+' / '+LEVELS.length, VIEW_W/2, VIEW_H/2-12);
+    ctx.fillStyle='#ffd75e'; ctx.font='bold 20px Segoe UI';
+    ctx.fillText(level.name, VIEW_W/2, VIEW_H/2+18);
+    ctx.fillStyle='#ff9eb5'; ctx.font='bold 15px Segoe UI';
+    const stars = '★'.repeat(Math.min(5,levelIdx+1)) + '☆'.repeat(Math.max(0,5-(levelIdx+1)));
+    ctx.fillText('Dificultad '+stars, VIEW_W/2, VIEW_H/2+42);
+    ctx.globalAlpha = 1;
+  }
+}
+function draw(){
+  drawBackground();
+  drawDecor();
+  for (const p of level.platforms){
+    const X=px(p.x); if (X>VIEW_W||X+p.w<0) continue;
+    if (p.bump>0){ ctx.save(); ctx.translate(0,-p.bump); drawPlatform(p); ctx.restore(); }
+    else drawPlatform(p);
+  }
+  for (const p of level.pipes) drawPipe(p);
+  drawGoal();
+  for (const c of coins) if(!c.taken) drawCoin(c);
+  drawPopcoins();
+  for (const m of mushrooms) if(!m.taken) drawMushroom(m);
+  for (const e of enemies) drawEnemy(e);
+  drawParticles();
+  drawPlayer();
+  drawHUD();
+}
+// ---------- CONTROLES TÁCTILES (móvil) ----------
+const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+const touchEl = document.getElementById('touch');
+if (isTouch) touchEl.classList.add('on');
+
+function bindBtn(id, code) {
+  const el = document.getElementById(id);
+  const down = e => { e.preventDefault(); keys[code] = true;
+    if (!actx){ try{actx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } };
+  const up = e => { e.preventDefault(); keys[code] = false; };
+  el.addEventListener('touchstart', down, {passive:false});
+  el.addEventListener('touchend', up, {passive:false});
+  el.addEventListener('touchcancel', up, {passive:false});
+  el.addEventListener('mousedown', down);
+  el.addEventListener('mouseup', up);
+  el.addEventListener('mouseleave', up);
+}
+bindBtn('bLeft', 'ArrowLeft');
+bindBtn('bRight', 'ArrowRight');
+bindBtn('bJump', 'ArrowUp');
+
+// Tocar el lienzo = empezar / avanzar de pantalla (igual que Enter)
+canvas.addEventListener('touchstart', e=>{
+  if (state==='menu'||state==='gameover'||state==='win'||state==='levelclear'){ e.preventDefault(); advance(); }
+}, {passive:false});
+
+function loop(){ update(); if(level) draw(); requestAnimationFrame(loop); }
+
+init(); loop();
+</script>
+</body>
+</html>
