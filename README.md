@@ -8,7 +8,8 @@ esconde una pregunta de nuestra historia dentro de un bloque **? ROSA**.
 - Hay que **sacar TODOS los bloques `?`** de cada mundo (golpéalos con la cabeza saltando desde abajo).
 - El bloque **? ROSA** lanza la pregunta: hay que responderla bien.
 - Sin sacar todos los `?` y responder, **la bandera 🏁 queda cerrada**.
-- **3 vidas ❤️ por día**: si se pierden, se reponen al día siguiente (se guardan en el navegador).
+- **1 vida ❤️ por día**: si se pierde, se repone al día siguiente (se guarda en el navegador).
+- Arranca en el **Mundo 6** (los mundos 1–5 ya quedan pasados).
 
 ## Las preguntas
 1. México 🌵 — ¿Dónde nos conocimos? → *rancho mx*
@@ -16,7 +17,8 @@ esconde una pregunta de nuestra historia dentro de un bloque **? ROSA**.
 3. Las Oficinas 🏢 — ¿Empresa de Charlie? → *didimosoft*
 4. La Cocina 🍽️ — ¿Comida favorita de Charlie? → *garbanzos*
 5. El Futuro 👶 — ¿Cómo se va a llamar nuestra hija? → *juanita*
-6. El Gran Final 🎁 — ¿Qué crees que es tu primer regalo? (opción múltiple) → *Ropa*
+6. El Equipo 👷 — Nombra DOS trabajadores de Charlie (necesita dos) → *carlos / jhampier / omar / fredy / paula(ita) / ivan*
+7. El Gran Final 🎁 — ¿Qué crees que es tu primer regalo? (opción múltiple) → *Ropa*
 
 ## Estructura
 Es un sitio **100% estático**: un solo `index.html` (sin build, sin dependencias).

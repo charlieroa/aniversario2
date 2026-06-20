@@ -344,7 +344,39 @@ function buildLevels() {
         {x:2300,y:FY-30,min:2100,max:2750,vx:1.6}],
       goal: 2700,
     },
-    // ---- 6 · EL GRAN FINAL (nivel ganador · pregunta de opción múltiple) ----
+    // ---- 6 · EL EQUIPO (pregunta: nombra DOS trabajadores de Charlie) ----
+    {
+      name: 'El Equipo 👷', sky:'#8a9bb5', far:'#5a6b88', grass:'#7a8aa0', dirt:'#5a4636',
+      width: 2600,
+      question: {
+        q:'👷 Nombra DOS trabajadores de Charlie',
+        type:'two',
+        workers:[['carlos'],['jhampier','jampier','yampier'],['omar'],['fredy','freddy'],['paula','paulita'],['ivan']]
+      },
+      platforms: [
+        {x:0,y:FY,w:600,h:50,t:'ground'},
+        {x:700,y:FY,w:400,h:50,t:'ground'},
+        {x:1200,y:FY,w:400,h:50,t:'ground'},
+        {x:1700,y:FY,w:900,h:50,t:'ground'},
+        {x:260,y:330,w:120,h:30,t:'brick'},
+        {x:500,y:260,w:100,h:30,t:'q'},
+        {x:780,y:300,w:120,h:30,t:'brick'},
+        {x:1050,y:230,w:100,h:30,t:'q'},
+        {x:1320,y:300,w:140,h:30,t:'brick'},
+        {x:1750,y:260,w:130,h:30,t:'brick'},
+        {x:2050,y:260,w:100,h:30,t:'q'},
+        {x:2300,y:240,w:120,h:30,t:'brick'},
+      ],
+      pipes: [{x:1500,h:90}],
+      decor: [{t:'building',x:200},{t:'building',x:1150},{t:'building',x:2150}],
+      coins: [[300,300],[820,260],[1360,260],[1790,220],[2340,200],
+        [650,FY-30],[950,FY-30],[1400,FY-30],[1900,FY-30],[2200,FY-30]],
+      mushrooms: [[1790,220]],
+      enemies: [{x:800,y:FY-30,min:700,max:1080,vx:1.2},
+        {x:1300,y:FY-30,min:1200,max:1580,vx:-1.3}],
+      goal: 2500,
+    },
+    // ---- 7 · EL GRAN FINAL (nivel ganador · pregunta de opción múltiple) ----
     {
       name: 'El Gran Final 🎁', sky:'#ffb3d9', far:'#ff7ab3', grass:'#ffd24d', dirt:'#d98a3c',
       width: 2600,
@@ -387,7 +419,9 @@ let state='menu';
 let coins=[], mushrooms=[], enemies=[], particles=[], popcoins=[];
 let big=false, T=0, hintMsg='', hintT=0;
 let answeredLevels=[], finishedAll=false, levelIntroT=0;
-const SAVE_KEY='aniv2_save_v2';
+const SAVE_KEY='aniv2_save_v3';
+const START_LIVES=1;   // empieza con una sola vida
+const START_WORLD=5;   // arranca en el Mundo 6 (índice 5): marca 1-5 como ya pasados
 
 const player = { x:40, y:0, w:30, h:48, vx:0, vy:0, onGround:false, facing:1, invuln:0, animT:0 };
 
@@ -425,9 +459,10 @@ function init(){
   if (s) {
     score = s.score||0; coinsGot = s.coinsGot||0;
     if (Array.isArray(s.answered)) for (let i=0;i<LEVELS.length;i++) answeredLevels[i]=!!s.answered[i];
-    lives = (s.day===today) ? s.lives : 3; // nuevo día => vidas llenas
+    lives = (s.day===today) ? s.lives : START_LIVES; // nuevo día => vida repuesta
   } else {
-    score=0; coinsGot=0; lives=3;
+    score=0; coinsGot=0; lives=START_LIVES;
+    for (let i=0;i<START_WORLD && i<LEVELS.length;i++) answeredLevels[i]=true; // arranca en el Mundo 6
   }
   // Reanudar en el PRIMER mundo cuya pregunta aún no se ha respondido.
   // (Si ya contestó 1 y 2 → empieza directo en el Mundo 3, sin repetir.)
@@ -443,10 +478,7 @@ function init(){
 function beginPlay(){ overlay.classList.add('hidden'); quizDiv.classList.add('hidden'); state='playing'; }
 
 function showMenu(){
-  const done = answeredLevels.filter(Boolean).length;
-  const progreso = done > 0
-    ? `<br><span style="color:#9be39b;">✔ Ya respondiste ${done} pregunta(s): no repites esos mundos.</span><br>Continúas en el <b>Mundo ${levelIdx+1}/${LEVELS.length}</b> · Vidas: ${'❤️'.repeat(lives)}`
-    : `<br>Empiezas en el <b>Mundo 1/${LEVELS.length}</b> · Vidas: ${'❤️'.repeat(lives)}`;
+  const remaining = answeredLevels.filter(a=>!a).length;
   showOverlay('💞 ANIVERSARIO 2 💞',
     `<b>Cómo se juega:</b><br>` +
     `• Muévete con ← → (o los botones en celular) y salta con ↑ / Espacio.<br>` +
@@ -454,14 +486,13 @@ function showMenu(){
     `• El bloque <b>? ROSA</b> esconde una pregunta de nuestra historia: respóndela bien.<br>` +
     `• Pisa a los enemigos y esquívalos. Recoge monedas y hongos 🍄.<br>` +
     `• Sin sacar todos los ? y responder, <b>la bandera 🏁 queda cerrada</b>.<br>` +
-    `• Tienes <b>3 vidas ❤️ por día</b>: si las pierdes, vuelven mañana.<br>` +
-    `• Si ya pasaste mundos, <b>solo respondes las preguntas que faltan</b>.` +
-    progreso,
+    `• Tienes <b>1 vida ❤️ por día</b>: si la pierdes, vuelve mañana.<br>` +
+    `<br>Empiezas en el <b>Mundo ${levelIdx+1}/${LEVELS.length}</b> · Te faltan <b>${remaining}</b> pregunta(s) · Vida: ${'❤️'.repeat(lives)}`,
     'Click o ENTER para jugar');
 }
 function showLocked(){
-  showOverlay('SIN VIDAS 💔',
-    `Perdiste tus 3 vidas de hoy.<br>Vuelve <b>mañana</b> para 3 vidas nuevas 💞<br>(Progreso guardado: Mundo ${levelIdx+1}/${LEVELS.length})`,
+  showOverlay('SIN VIDA 💔',
+    `Te quedaste sin vida por hoy.<br>Vuelve <b>mañana</b> para otra oportunidad 💞<br>(Progreso guardado: Mundo ${levelIdx+1}/${LEVELS.length})`,
     '⏳ Hasta mañana');
 }
 function showWin(){
@@ -471,6 +502,7 @@ function showWin(){
       `<br>🔑 <b>Palabra secreta:</b> dile a Charlie:<br>` +
       `<b style="color:#ffd75e;font-size:16px;">«Charlie, dame mi ropa»</b><br>` +
       `Si no la dices… ¡no te la da! 😜<br>` +
+      `<br>🚗 Cuando la digas, baja al <b>BAÚL DEL CARRO</b>: ahí está tu ropa.<br>` +
       `<br>📜 <b>Pista del segundo regalo:</b><br>` +
       `Entrégale a Charlie un <b>papel en blanco</b> el día <b>MARTES</b> 🗓️, junto con esto:<br>` +
       `<br><i style="color:#ffd9e6;display:block;text-align:left;background:rgba(255,255,255,.08);padding:12px 14px;border-radius:10px;border-left:3px solid #e23b6d;">` +
@@ -566,8 +598,22 @@ function openQuiz(p){
   quizDiv.classList.remove('hidden');
 }
 function submitQuiz(){ tryAnswer(quizInput.value); }
+function countWorkers(input, groups){
+  const n = norm(input);
+  let c = 0;
+  for (const g of groups){ if (g.some(name => n.includes(norm(name)))) c++; }
+  return c;
+}
 function tryAnswer(text){
-  if (checkAnswer(text, level.question.answers)) quizSuccess();
+  const q = level.question;
+  if (q.type === 'two') {
+    const c = countWorkers(text, q.workers);
+    if (c >= 2) quizSuccess();
+    else if (c === 1) quizFail('¡Casi! Nombraste uno… <b>te falta UNO más</b> 😊');
+    else quizFail('Nombra a <b>DOS</b> trabajadores de Charlie 💭');
+    return;
+  }
+  if (checkAnswer(text, q.answers)) quizSuccess();
   else quizFail();
 }
 function quizSuccess(){
@@ -580,10 +626,10 @@ function quizSuccess(){
   quizDiv.classList.add('hidden');
   state='playing';
 }
-function quizFail(){
+function quizFail(msg){
   sfx.wrong();
   quizFb.style.color='#ff9eb5';
-  quizFb.textContent='Mmm, esa no es… 💭 ¡inténtalo otra vez!';
+  quizFb.innerHTML = msg || 'Mmm, esa no es… 💭 ¡inténtalo otra vez!';
   quizDiv.classList.remove('shake'); void quizDiv.offsetWidth; quizDiv.classList.add('shake');
   if (!level.question.options){ quizInput.focus(); quizInput.select(); }
 }
@@ -971,7 +1017,7 @@ function drawHUD(){
   const qLeft = level.platforms.filter(p=>p.t==='q' && !p.used).length;
   ctx.fillText('MUNDO '+(levelIdx+1)+'/'+LEVELS.length+' · '+level.name+'   ?:'+qLeft, VIEW_W/2, 24);
   ctx.textAlign='right';
-  let h=''; for(let i=0;i<lives;i++) h+='❤️'; for(let i=lives;i<3;i++) h+='🖤';
+  let h=''; for(let i=0;i<lives;i++) h+='❤️'; for(let i=lives;i<START_LIVES;i++) h+='🖤';
   ctx.fillText(h, VIEW_W-14, 24);
   if (hintT>0){
     ctx.fillStyle='rgba(0,0,0,.75)'; ctx.fillRect(VIEW_W/2-250,VIEW_H-66,500,34);
