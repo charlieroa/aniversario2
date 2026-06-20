@@ -14,7 +14,10 @@
     color: #fff; user-select: none; overflow: hidden;
   }
   h1 { margin: 8px 0 2px; font-size: 20px; letter-spacing: 1px; text-shadow: 2px 2px 0 #000; }
-  #hint { margin: 0 0 8px; font-size: 12px; color: #99a; }
+  #hint { margin: 0 0 6px; font-size: 12px; color: #99a; }
+  .mbtn { margin: 0 0 8px; font-size: 12px; padding: 5px 14px; border-radius: 8px;
+          border: 2px solid #555; background: #222; color: #fff; cursor: pointer; }
+  .mbtn:hover { background: #333; }
   #wrap { position: relative; width: min(800px, 96vw); }
   canvas {
     background: #5c94fc;
@@ -24,23 +27,24 @@
     width: 100%; height: auto; display: block;
     touch-action: none;
   }
-  /* ---- controles táctiles ---- */
-  #touch { position: absolute; inset: 0; pointer-events: none; display: none; }
-  #touch.on { display: block; }
-  .tbtn {
-    position: absolute; bottom: 14px;
-    width: 70px; height: 70px; border-radius: 50%;
-    background: rgba(255,255,255,.22);
-    border: 3px solid rgba(255,255,255,.55);
-    color: #fff; font-size: 30px; font-weight: bold;
-    display: flex; align-items: center; justify-content: center;
-    pointer-events: auto; user-select: none; -webkit-user-select: none;
-    -webkit-tap-highlight-color: transparent;
+  /* ---- controles táctiles (debajo del juego) ---- */
+  #touch {
+    display: none; width: min(800px, 96vw); margin: 12px auto 16px;
+    justify-content: space-between; gap: 12px;
   }
-  .tbtn:active { background: rgba(255,255,255,.45); }
-  #bLeft  { left: 14px; }
-  #bRight { left: 100px; }
-  #bJump  { right: 16px; width: 86px; height: 86px; background: rgba(226,59,109,.4); border-color: rgba(255,160,200,.7); }
+  #touch.on { display: flex; }
+  .tbtn {
+    height: 76px; border-radius: 16px;
+    background: rgba(255,255,255,.14);
+    border: 3px solid rgba(255,255,255,.45);
+    color: #fff; font-size: 34px; font-weight: bold;
+    display: flex; align-items: center; justify-content: center;
+    user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent; touch-action: none;
+  }
+  .tbtn:active { background: rgba(255,255,255,.38); }
+  #bLeft, #bRight { flex: 1; }
+  #bJump { flex: 1.5; font-size: 24px; background: rgba(226,59,109,.45); border-color: rgba(255,160,200,.7); }
   #overlay, #quiz {
     position: absolute; inset: 0;
     display: flex; flex-direction: column;
@@ -82,6 +86,7 @@
 <body>
   <h1>💞 ANIVERSARIO 2 💞</h1>
   <p id="hint">← → correr · Shift rápido · ↑/Espacio saltar · golpea con la cabeza el bloque ? ROSA para la pregunta · llega a la bandera 🏁</p>
+  <button id="mbtn" class="mbtn">🔊 Música: ON</button>
   <div id="wrap">
     <canvas id="game" width="800" height="450"></canvas>
 
@@ -99,12 +104,12 @@
       <div id="quiz-choices" class="hidden"></div>
       <div class="fb" id="quiz-fb"></div>
     </div>
+  </div>
 
-    <div id="touch">
-      <div class="tbtn" id="bLeft">◀</div>
-      <div class="tbtn" id="bRight">▶</div>
-      <div class="tbtn" id="bJump">⤒</div>
-    </div>
+  <div id="touch">
+    <div class="tbtn" id="bLeft">◀</div>
+    <div class="tbtn" id="bRight">▶</div>
+    <div class="tbtn" id="bJump">⤒ Saltar</div>
   </div>
 
 <script>
@@ -117,6 +122,7 @@ let actx = null;
 function beep(freq, dur, type, vol) {
   try {
     if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
     const o = actx.createOscillator(), g = actx.createGain();
     o.type = type || 'square'; o.frequency.value = freq;
     g.gain.value = vol || 0.06;
@@ -135,6 +141,45 @@ const sfx = {
   win:   () => { [659,784,1047,1319].forEach((f,i)=>setTimeout(()=>beep(f,0.15,'square',0.06),i*140)); },
   wrong: () => { beep(200,0.18,'sawtooth',0.06); setTimeout(()=>beep(140,0.22,'sawtooth',0.06),150); },
 };
+
+// ---------- MÚSICA DE FONDO (loop suave) ----------
+let musicOn = true, musicTimer = null, noteIdx = 0;
+const MELODY = [
+  523,659,784,659, 587,698,880,698, 523,659,784,1047, 988,784,659,0,
+  523,659,784,659, 587,784,659,587, 523,587,659,784, 659,523,0,0
+];
+function startMusic(){
+  if (!actx || musicTimer || !musicOn) return;
+  const step = () => {
+    if (!musicOn){ musicTimer=null; return; }
+    const n = MELODY[noteIdx % MELODY.length]; noteIdx++;
+    if (n) beep(n, 0.16, 'triangle', 0.028);
+    musicTimer = setTimeout(step, 215);
+  };
+  step();
+}
+function stopMusic(){ if (musicTimer){ clearTimeout(musicTimer); musicTimer=null; } }
+
+// Desbloqueo de audio en el primer gesto del usuario (política de los navegadores)
+function unlockAudio(){
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    if (musicOn && !musicTimer) startMusic();
+  } catch(e) {}
+}
+window.addEventListener('pointerdown', unlockAudio);
+window.addEventListener('keydown', unlockAudio);
+window.addEventListener('touchstart', unlockAudio, {passive:true});
+
+const mbtn = document.getElementById('mbtn');
+mbtn.addEventListener('click', e => {
+  e.stopPropagation();
+  musicOn = !musicOn;
+  mbtn.textContent = musicOn ? '🔊 Música: ON' : '🔇 Música: OFF';
+  if (musicOn) unlockAudio(); else stopMusic();
+});
+window.addEventListener('keydown', e => { if (e.code === 'KeyM') mbtn.click(); });
 
 // ---------- CONSTANTES ----------
 const GRAVITY = 0.62;
